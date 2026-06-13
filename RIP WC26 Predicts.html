@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Predicciones RIP World Cup</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:'Montserrat',sans-serif;
+    min-height:100vh;
+    background:#032d2f;
+    overflow-x:hidden;
+}
+
+body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+
+    background:
+    repeating-radial-gradient(
+        circle at center,
+        #00e6d0 0 60px,
+        #003f42 60px 120px
+    );
+
+    opacity:.08;
+    pointer-events:none;
+}
+
+.hero{
+    text-align:center;
+    padding:40px 20px 25px;
+}
+
+.decorated-img {
+            content: url('FIFAWC26.png');
+            display: inline-block;
+            margin-left: 0px;
+            margin-bottom: 50px;
+            width: 200px;
+            height: 200px;
+            padding: 5px;
+}
+.hero h1{
+    color:white;
+    font-size:2.5rem;
+    letter-spacing:-1px;
+}
+
+.hero p{
+    color:#b5dada;
+    margin-top:8px;
+}
+
+.leaderboard{
+    max-width:900px;
+    margin:auto;
+    padding:20px;
+}
+
+.row{
+    display:grid;
+    grid-template-columns:90px 1fr 130px;
+    margin-bottom:14px;
+    border-radius:20px;
+    overflow:hidden;
+    box-shadow:0 8px 18px rgba(0,0,0,.25);
+}
+
+.rank{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:2rem;
+    font-weight:900;
+    color:white;
+}
+
+.rank.first{
+    background:#ff3a3a;
+}
+
+.rank.second{
+    background:#7c4dff;
+}
+
+.rank.third{
+    background:#00d6ff;
+}
+
+.rank.normal{
+    background:#ff6f00;
+}
+
+.name{
+    background:black;
+    color:white;
+    display:flex;
+    align-items:center;
+    padding-left:25px;
+    font-size:1.3rem;
+    font-weight:900;
+    letter-spacing:2px;
+}
+
+.points{
+    background:#64f5e6;
+    color:black;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:2rem;
+    font-weight:900;
+}
+
+.loading{
+    color:white;
+    text-align:center;
+    margin-top:40px;
+    font-size:1.2rem;
+}
+
+</style>
+</head>
+<body>
+
+<header class="hero">
+    <div class="decorated-img"></div>
+    <h1>PREDICCIONES RIP MUNDIAL 2026</h1>
+    <p>FIFA WORLD CUP 2026™</p>
+</header>
+
+<div id="leaderboard" class="leaderboard">
+    <div class="loading">Loading standings...</div>
+</div>
+
+<script>
+
+
+const SHEET_URL =
+"https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Ranking";
+
+fetch(SHEET_URL)
+.then(response => response.json())
+.then(players => {
+
+    players.sort(
+        (a,b) => 
+        Number(b["Puntos"]) - 
+        Number(a["Puntos"])
+    );
+
+    const board = document.getElementById("leaderboard");
+
+    board.innerHTML = "";
+
+    players.forEach((player,index)=>{
+
+        let rankClass = "normal";
+
+        if(index === 0) rankClass = "first";
+        else if(index === 1) rankClass = "second";
+        else if(index === 2) rankClass = "third";
+
+        board.innerHTML += `
+            <div class="row">
+
+                <div class="rank ${rankClass}">
+                    ${index + 1}
+                </div>
+
+                <div class="name">
+                    ${player["Nombre"].toUpperCase()}
+                </div>
+
+                <div class="points">
+                    ${player["Puntos"]}
+                </div>
+
+            </div>
+        `;
+    });
+
+})
+.catch(error => {
+
+    document.getElementById("leaderboard").innerHTML = `
+        <div class="loading">
+            Failed to load standings.
+        </div>
+    `;
+
+    console.error(error);
+
+});
+
+</script>
+
+</body>
+</html>
