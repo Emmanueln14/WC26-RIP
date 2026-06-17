@@ -173,8 +173,15 @@ body::before{
 .status-tag { font-weight: 800; font-size: 0.9rem; }
 .status-tag.ok { color: #64f5e6; }
 .status-tag.fail { color: #ff3a3a; }
+.status-tag.wait { color: #ffeb3b; }
 
 .loading{ color:white; text-align:center; margin-top:20px; font-size:1.2rem; }
+
+@keyframes parpadeo {
+    0% { opacity: 1; }
+    50% { opacity: 0.4; }
+    100% { opacity: 1; }
+}
 </style>
 </head>
 <body>
@@ -190,40 +197,41 @@ body::before{
     <div class="loading">Loading standings...</div>
 </div>
 
-<h2 class="section-title">SIMULADOR DE GRUPOS</h2>
+<h2 class="section-title">🔮 SIMULADOR DE GRUPOS</h2>
 <div class="filter-container">
     <div class="filter-box">
         <label for="select-grupo">1. SELECCIONA GRUPO</label>
         <select id="select-grupo" onchange="procesarSimulacion()">
-    <option value="A">GRUPO A</option>
-    <option value="B">GRUPO B</option>
-    <option value="C">GRUPO C</option>
-    <option value="D">GRUPO D</option>
-    <option value="E">GRUPO E</option>
-    <option value="F">GRUPO F</option>
-    <option value="G">GRUPO G</option>
-    <option value="H">GRUPO H</option>
-    <option value="I">GRUPO I</option>
-    <option value="J">GRUPO J</option>
-    <option value="K">GRUPO K</option>
-    <option value="L">GRUPO L</option>
-</select>
+            <option value="A">GRUPO A</option>
+            <option value="B">GRUPO B</option>
+            <option value="C">GRUPO C</option>
+            <option value="D">GRUPO D</option>
+            <option value="E">GRUPO E</option>
+            <option value="F">GRUPO F</option>
+            <option value="G">GRUPO G</option>
+            <option value="H">GRUPO H</option>
+            <option value="I">GRUPO I</option>
+            <option value="J">GRUPO J</option>
+            <option value="K">GRUPO K</option>
+            <option value="L">GRUPO L</option>
+        </select>
     </div>
 
     <div class="filter-box">
         <label for="select-usuario">2. VER PREDICCIONES DE:</label>
         <select id="select-usuario" onchange="procesarSimulacion()">
-            </select>
+        </select>
     </div>
 </div>
 
 <div id="contenedor-simulador" class="leaderboard">
-    </div>
+</div>
 
 <script>
 
 const URL_RANKING = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Ranking";
 const URL_RESPUESTAS = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Respuestas%20de%20formulario%201";
+const URL_LIVE = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Resultados%20LIVE"; 
 
 
 const GRUPOS_FÚTBOL = {
@@ -321,9 +329,10 @@ const GRUPOS_FÚTBOL = {
         { columna: "Croacia vs Ghana", local: "Croacia", visitante: "Ghana" }
     ]
 };
-let dbRespuestas = [];
-let filaMaestro = {};
 
+let dbRespuestas = [];
+let dbLive = []; 
+let filaMaestro = {};
 
 function obtenerValorColumna(objetoFila, nombreColumnaOriginal) {
     if (!objetoFila) return "";
@@ -331,16 +340,14 @@ function obtenerValorColumna(objetoFila, nombreColumnaOriginal) {
     const claveBuscada = limpiar(nombreColumnaOriginal);
     
     for (let clave in objetoFila) {
-        if (limpiar(clave) === claveBuscada) {
-            return objetoFila[clave];
-        }
+        if (limpiar(clave) === claveBuscada) return objetoFila[clave];
     }
     return "";
 }
 
 
 window.onload = function() {
-    
+   
     fetch(URL_RANKING)
     .then(res => res.json())
     .then(players => {
@@ -358,22 +365,24 @@ window.onload = function() {
         });
     });
 
-    
-    fetch(URL_RESPUESTAS)
-    .then(res => res.json())
-    .then(data => {
-        dbRespuestas = data;
+   
+    Promise.all([
+        fetch(URL_RESPUESTAS).then(res => res.json()),
+        fetch(URL_LIVE).then(res => res.json()).catch(() => []) 
+    ])
+    .then(([dataRespuestas, dataLive]) => {
+        dbRespuestas = dataRespuestas;
+        dbLive = dataLive; 
         
-       
-        filaMaestro = data.find(f => {
+        filaMaestro = dataRespuestas.find(f => {
             let nombre = obtenerValorColumna(f, "Nombre");
             return nombre.toUpperCase() === "MAESTRO";
-        }) || data[0];
+        }) || dataRespuestas[0];
         
         const selectUser = document.getElementById("select-usuario");
         selectUser.innerHTML = ""; 
 
-        const jugadores = data.filter(f => {
+        const jugadores = dataRespuestas.filter(f => {
             let nombre = obtenerValorColumna(f, "Nombre");
             return nombre.toUpperCase() !== "MAESTRO" && nombre !== "";
         });
@@ -390,7 +399,7 @@ window.onload = function() {
 
         procesarSimulacion();
     })
-    .catch(err => console.error("Error cargando usuarios: ", err));
+    .catch(err => console.error("Error cargando estructuras iniciales: ", err));
 }
 
 
@@ -417,43 +426,83 @@ function procesarSimulacion() {
         if (!tablaPaises[partido.local]) tablaPaises[partido.local] = 0;
         if (!tablaPaises[partido.visitante]) tablaPaises[partido.visitante] = 0;
 
-        
         let predUpper = pred ? pred.toUpperCase().trim() : "";
         let localUpper = partido.local.toUpperCase().trim();
         let visitanteUpper = partido.visitante.toUpperCase().trim();
 
-       
-if (predUpper !== "") { 
-    if (predUpper === "GANA LOCAL" || predUpper.includes(localUpper)) {
-        tablaPaises[partido.local] += 3;
-    } 
-    else if (predUpper === "GANA VISITANTE" || predUpper.includes(visitanteUpper)) {
-        tablaPaises[partido.visitante] += 3;
-    } 
-    else if (predUpper.includes("EMPATE")) {
-        tablaPaises[partido.local] += 1;
-        tablaPaises[partido.visitante] += 1;
-    }
-}
+        
+        if (predUpper !== "") {
+            if (predUpper === "GANA LOCAL" || predUpper.includes(localUpper)) {
+                tablaPaises[partido.local] += 3;
+            } 
+            else if (predUpper === "GANA VISITANTE" || predUpper.includes(visitanteUpper)) {
+                tablaPaises[partido.visitante] += 3;
+            } 
+            else if (predUpper.includes("EMPATE")) {
+                tablaPaises[partido.local] += 1;
+                tablaPaises[partido.visitante] += 1;
+            }
+        }
 
        
-        let esAcertado = (real && real.toUpperCase() !== "PENDIENTE" && real.toUpperCase() === predUpper);
+        let etiquetaLive = "";
+        let esLive = false;
+        
+        if (dbLive && dbLive.length > 0) {
+            const limpiarTexto = (t) => t ? t.toString().toLowerCase().replace(/[^a-z0-9]/g, "") : "";
+            
+           
+            let raizLocal = limpiarTexto(partido.local).substring(0, 3);
+            let raizVisita = limpiarTexto(partido.visitante).substring(0, 3);
+
+            let partidoEncontrado = dbLive.find(l => {
+                let textoPartidoSheet = l["Partido"] || l["partido"] || "";
+                let textoPartidoLimpio = limpiarTexto(textoPartidoSheet);
+                
+                if(!textoPartidoLimpio) return false;
+
+                
+                return textoPartidoLimpio.includes(raizLocal) && 
+                       (textoPartidoLimpio.includes(raizVisita) || 
+                        (partido.visitante.includes("Congo") && textoPartidoLimpio.includes("congo")));
+            });
+
+            if (partidoEncontrado) {
+                let estadoActual = partidoEncontrado["Estado"] || partidoEncontrado["estado"] || "";
+                if (estadoActual.trim() !== "") {
+                    esLive = true;
+                    etiquetaLive = `<span style="background: #ff3a3a; color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; margin-left: 10px; font-weight: 900; letter-spacing: 1px; box-shadow: 0 0 8px #ff3a3a; animation: parpadeo 1s infinite;">🔴 ${estadoActual}</span>`;
+                }
+            }
+        }
+
+        
+        let realLimpio = real ? real.toUpperCase().trim() : "";
+        let esAcertado = (!esLive && real && !realLimpio.includes("PENDIENTE") && realLimpio === predUpper);
+        
         let cardClass = esAcertado ? "match-card acertado" : "match-card";
-        let statusSigno = esAcertado ? 
-            '<span class="status-tag ok">✔ ACERTADO (+3 pts)</span>' : 
-            `<span class="status-tag fail">✘ NO ACERTADO (Real: ${real || 'Pendiente'})</span>`;
+        
+        let statusSigno = "";
+        if (esLive) {
+            statusSigno = '<span class="status-tag wait" style="animation: parpadeo 1.5s infinite;">⏳ EN CURSO</span>';
+        } else if (esAcertado) {
+            statusSigno = '<span class="status-tag ok">✔ ACERTADO (+3 pts)</span>';
+        } else {
+            let textoReal = real || 'Pendiente';
+            statusSigno = `<span class="status-tag fail">✘ NO ACERTADO (Real: ${textoReal})</span>`;
+        }
 
         htmlPartidos += `
             <div class="${cardClass}">
                 <div>
-                    <strong>${partido.local} vs ${partido.visitante}</strong><br>
+                    <strong>${partido.local} vs ${partido.visitante} ${etiquetaLive}</strong><br>
                     <span style="color:#b5dada; font-size:0.9rem;">Tu predicción: ${pred || 'Ninguna'}</span>
                 </div>
                 <div>${statusSigno}</div>
             </div>`;
     });
 
-    
+   
     let sortedPaises = Object.keys(tablaPaises).map(name => ({ name: name, pts: tablaPaises[name] }));
     sortedPaises.sort((a,b) => b.pts - a.pts);
 
@@ -469,7 +518,9 @@ if (predUpper !== "") {
     });
 
     contenedor.innerHTML = htmlTabla + htmlPartidos;
-}</script>
+}
+</script>
+
 <div class="hero">
     <h6 style="color:white; font-size:0.8rem; font-style: italic;">*Cada partido acertado son 3 puntos. Acertar la final son 10 pts extras y el campeón 5 pts más.</h6>
 </div>
