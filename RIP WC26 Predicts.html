@@ -9,7 +9,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
 
 <style>
-
 *{
     margin:0;
     padding:0;
@@ -27,14 +26,12 @@ body::before{
     content:"";
     position:fixed;
     inset:0;
-
     background:
     repeating-radial-gradient(
         circle at center,
         #00e6d0 0 60px,
         #003f42 60px 120px
     );
-
     opacity:.08;
     pointer-events:none;
 }
@@ -45,32 +42,71 @@ body::before{
 }
 
 .decorated-img {
-            content: url('FIFAWC26.png');
-            display: inline-block;
-            margin-left: 0px;
-            margin-bottom: 50px;
-            width: 200px;
-            height: 200px;
-            padding: 5px;
+    content: url('FIFAWC26.png');
+    display: inline-block;
+    margin-left: 0px;
+    margin-bottom: 50px;
+    width: 200px;
+    height: 200px;
+    padding: 5px;
 }
+
 .hero h1{
     color:white;
     font-size:2.5rem;
     letter-spacing:-1px;
 }
 
-.hero h6{
-    color:white;
-    font-size:0.8rem;
-    font-style: italic;
-    letter-spacing:-1px;
-}
-
-
 .hero p{
     color:#b5dada;
     margin-top:8px;
 }
+
+.section-title {
+    color: white;
+    text-align: center;
+    font-size: 1.8rem;
+    margin: 40px 0 20px;
+    letter-spacing: 1px;
+    text-shadow: 0 0 10px #00e6d0;
+}
+
+
+.filter-container {
+    max-width: 900px;
+    margin: 0 auto 20px auto;
+    padding: 0 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+@media (max-width: 600px) {
+    .filter-container { grid-template-columns: 1fr; }
+}
+
+.filter-box { display: flex; flex-direction: column; }
+.filter-box label {
+    color: #64f5e6;
+    font-size: 0.9rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+}
+
+.filter-box select {
+    background: black;
+    color: white;
+    border: 2px solid #64f5e6;
+    border-radius: 12px;
+    padding: 12px 20px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    outline: none;
+    cursor: pointer;
+}
+
 
 .leaderboard{
     max-width:900px;
@@ -95,22 +131,10 @@ body::before{
     font-weight:900;
     color:white;
 }
-
-.rank.first{
-    background:#ff3a3a;
-}
-
-.rank.second{
-    background:#7c4dff;
-}
-
-.rank.third{
-    background:#00d6ff;
-}
-
-.rank.normal{
-    background:#ff6f00;
-}
+.rank.first{ background:#ff3a3a; }
+.rank.second{ background:#7c4dff; }
+.rank.third{ background:#00d6ff; }
+.rank.normal{ background:#ff6f00; }
 
 .name{
     background:black;
@@ -133,13 +157,24 @@ body::before{
     font-weight:900;
 }
 
-.loading{
-    color:white;
-    text-align:center;
-    margin-top:40px;
-    font-size:1.2rem;
-}
 
+.match-card {
+    background: black;
+    color: white;
+    padding: 15px 25px;
+    border-radius: 15px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: 5px solid #ff6f00;
+}
+.match-card.acertado { border-left: 5px solid #64f5e6; }
+.status-tag { font-weight: 800; font-size: 0.9rem; }
+.status-tag.ok { color: #64f5e6; }
+.status-tag.fail { color: #ff3a3a; }
+
+.loading{ color:white; text-align:center; margin-top:20px; font-size:1.2rem; }
 </style>
 </head>
 <body>
@@ -150,75 +185,294 @@ body::before{
     <p>FIFA WORLD CUP 2026™</p>
 </header>
 
+<h2 class="section-title">🏆 RANKING GENERAL</h2>
 <div id="leaderboard" class="leaderboard">
     <div class="loading">Loading standings...</div>
 </div>
 
-<script>
+<h2 class="section-title">SIMULADOR DE GRUPOS</h2>
+<div class="filter-container">
+    <div class="filter-box">
+        <label for="select-grupo">1. SELECCIONA GRUPO</label>
+        <select id="select-grupo" onchange="procesarSimulacion()">
+    <option value="A">GRUPO A</option>
+    <option value="B">GRUPO B</option>
+    <option value="C">GRUPO C</option>
+    <option value="D">GRUPO D</option>
+    <option value="E">GRUPO E</option>
+    <option value="F">GRUPO F</option>
+    <option value="G">GRUPO G</option>
+    <option value="H">GRUPO H</option>
+    <option value="I">GRUPO I</option>
+    <option value="J">GRUPO J</option>
+    <option value="K">GRUPO K</option>
+    <option value="L">GRUPO L</option>
+</select>
+    </div>
 
-
-const SHEET_URL =
-"https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Ranking";
-
-fetch(SHEET_URL)
-.then(response => response.json())
-.then(players => {
-
-    players.sort(
-        (a,b) => 
-        Number(b["Puntos"]) - 
-        Number(a["Puntos"])
-    );
-
-    const board = document.getElementById("leaderboard");
-
-    board.innerHTML = "";
-
-    players.forEach((player,index)=>{
-
-        let rankClass = "normal";
-
-        if(index === 0) rankClass = "first";
-        else if(index === 1) rankClass = "second";
-        else if(index === 2) rankClass = "third";
-
-        board.innerHTML += `
-            <div class="row">
-
-                <div class="rank ${rankClass}">
-                    ${index + 1}
-                </div>
-
-                <div class="name">
-                    ${player["Nombre"].toUpperCase()}
-                </div>
-
-                <div class="points">
-                    ${player["Puntos"]}
-                </div>
-
-            </div>
-        `;
-    });
-
-})
-.catch(error => {
-
-    document.getElementById("leaderboard").innerHTML = `
-        <div class="loading">
-            Failed to load standings.
-        </div>
-    `;
-
-    console.error(error);
-
-});
-
-</script>
-<div class="hero">
-        <h6>*Cada partido acertado son 3 puntos. Acertar la final son 10 pts extras y el campeón 5 pts más.</h6>
+    <div class="filter-box">
+        <label for="select-usuario">2. VER PREDICCIONES DE:</label>
+        <select id="select-usuario" onchange="procesarSimulacion()">
+            </select>
+    </div>
 </div>
 
+<div id="contenedor-simulador" class="leaderboard">
+    </div>
+
+<script>
+
+const URL_RANKING = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Ranking";
+const URL_RESPUESTAS = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Respuestas%20de%20formulario%201";
+
+
+const GRUPOS_FÚTBOL = {
+    "A": [
+        { columna: "República Checa vs Sudáfrica", local: "República Checa", visitante: "Sudáfrica" },
+        { columna: "México vs Corea del Sur", local: "México", visitante: "Corea del Sur" },
+        { columna: "República Checa vs México", local: "República Checa", visitante: "México" },
+        { columna: "Sudáfrica vs Corea del Sur", local: "Sudáfrica", visitante: "Corea del Sur" }
+    ],
+    "B": [
+        { columna: "Qatar vs Suiza", local: "Qatar", visitante: "Suiza" },
+        { columna: "Suiza vs Bosnia y Herzegovina", local: "Suiza", visitante: "Bosnia y Herzegovina" },
+        { columna: "Canadá vs Qatar", local: "Canadá", visitante: "Qatar" },
+        { columna: "Suiza vs Canadá", local: "Suiza", visitante: "Canadá" },
+        { columna: "Bosnia y Herzegovina vs Qatar", local: "Bosnia y Herzegovina", visitante: "Qatar" }
+    ],
+    "C": [
+        { columna: "Brasil vs Marruecos", local: "Brasil", visitante: "Marruecos" },
+        { columna: "Haití vs Escocia", local: "Haití", visitante: "Escocia" },
+        { columna: "Escocia vs Marruecos", local: "Escocia", visitante: "Marruecos" },
+        { columna: "Brasil vs Haití", local: "Brasil", visitante: "Haití" },
+        { columna: "Escocia vs Brasil", local: "Escocia", visitante: "Brasil" },
+        { columna: "Marruecos vs Haití", local: "Marruecos", visitante: "Haití" }
+    ],
+    "D": [
+        { columna: "USA vs Paraguay", local: "USA", visitante: "Paraguay" },
+        { columna: "Australia vs Turquía", local: "Australia", visitante: "Turquía" },
+        { columna: "USA vs Australia", local: "USA", visitante: "Australia" },
+        { columna: "Turquía vs Paraguay", local: "Turquía", visitante: "Paraguay" },
+        { columna: "Turquía vs USA", local: "Turquía", visitante: "USA" },
+        { columna: "Paraguay vs Australia", local: "Paraguay", visitante: "Australia" }
+    ],
+    "E": [
+        { columna: "Alemania vs Curazao", local: "Alemania", visitante: "Curazao" },
+        { columna: "Costa de Marfil vs Ecuador", local: "Costa de Marfil", visitante: "Ecuador" },
+        { columna: "Alemania vs Costa de Marfil", local: "Alemania", visitante: "Costa de Marfil" },
+        { columna: "Ecuador vs Curazao", local: "Ecuador", visitante: "Curazao" },
+        { columna: "Curazao vs Costa de Marfil", local: "Curazao", visitante: "Costa de Marfil" },
+        { columna: "Ecuador vs Alemania", local: "Ecuador", visitante: "Alemania" }
+    ],
+    "F": [
+        { columna: "Países Bajos vs Japón", local: "Países Bajos", visitante: "Japón" },
+        { columna: "Suecia vs Túnez", local: "Suecia", visitante: "Túnez" },
+        { columna: "Países Bajos vs Suecia", local: "Países Bajos", visitante: "Suecia" },
+        { columna: "Túnez vs Japón", local: "Túnez", visitante: "Japón" },
+        { columna: "Japón vs Suecia", local: "Japón", visitante: "Suecia" },
+        { columna: "Túnez vs Países Bajos", local: "Túnez", visitante: "Países Bajos" }
+    ],
+    "G": [
+        { columna: "Bélgica vs Egipto", local: "Bélgica", visitante: "Egipto" },
+        { columna: "Irán vs Nueva Zelanda", local: "Irán", visitante: "Nueva Zelanda" },
+        { columna: "Bélgica vs Irán", local: "Bélgica", visitante: "Irán" },
+        { columna: "Nueva Zelanda vs Egipto", local: "Nueva Zelanda", visitante: "Egipto" },
+        { columna: "Egipto vs Irán", local: "Egipto", visitante: "Irán" },
+        { columna: "Nueva Zelanda vs Bélgica", local: "Nueva Zelanda", visitante: "Bélgica" }
+    ],
+    "H": [
+        { columna: "España vs Cabo Verde", local: "España", visitante: "Cabo Verde" },
+        { columna: "Arabia Saudita vs Uruguay", local: "Arabia Saudita", visitante: "Uruguay" },
+        { columna: "España vs Arabia Saudita", local: "España", visitante: "Arabia Saudita" },
+        { columna: "Uruguay vs Cabo Verde", local: "Uruguay", visitante: "Cabo Verde" },
+        { columna: "Cabo Verde vs Arabia Saudita", local: "Cabo Verde", visitante: "Arabia Saudita" },
+        { columna: "Uruguay vs España", local: "Uruguay", visitante: "España" }
+    ],
+    "I": [
+        { columna: "Francia vs Senegal", local: "Francia", visitante: "Senegal" },
+        { columna: "Iraq vs Noruega", local: "Iraq", visitante: "Noruega" },
+        { columna: "Francia vs Iraq", local: "Francia", visitante: "Iraq" },
+        { columna: "Noruega vs Senegal", local: "Noruega", visitante: "Senegal" },
+        { columna: "Noruega vs Francia", local: "Noruega", visitante: "Francia" },
+        { columna: "Senegal vs Iraq", local: "Senegal", visitante: "Iraq" }
+    ],
+    "J": [
+        { columna: "Argentina vs Argelia", local: "Argentina", visitante: "Argelia" },
+        { columna: "Austria vs Jordania", local: "Austria", visitante: "Jordania" },
+        { columna: "Argentina vs Austria", local: "Argentina", visitante: "Austria" },
+        { columna: "Jordania vs Argelia", local: "Jordania", visitante: "Argelia" },
+        { columna: "Argelia vs Austria", local: "Argelia", visitante: "Austria" },
+        { columna: "Jordania vs Argentina", local: "Jordania", visitante: "Argentina" }
+    ],
+    "K": [
+        { columna: "Portugal vs República Democrática del Congo", local: "Portugal", visitante: "República Democrática del Congo" },
+        { columna: "Uzbekistán vs Colombia", local: "Uzbekistán", visitante: "Colombia" },
+        { columna: "Portugal vs Uzbekistán", local: "Portugal", visitante: "Uzbekistán" },
+        { columna: "Colombia vs República Democrática del Congo", local: "Colombia", visitante: "República Democrática del Congo" },
+        { columna: "Colombia vs Portugal", local: "Colombia", visitante: "Portugal" },
+        { columna: "República Democrática del Congo vs Uzbekistán", local: "República Democrática del Congo", visitante: "Uzbekistán" }
+    ],
+    "L": [
+        { columna: "Inglaterra vs Croacia", local: "Inglaterra", visitante: "Croacia" },
+        { columna: "Ghana vs Panamá", local: "Ghana", visitante: "Panamá" },
+        { columna: "Inglaterra vs Ghana", local: "Inglaterra", visitante: "Ghana" },
+        { columna: "Panamá vs Croacia", local: "Panamá", visitante: "Croacia" },
+        { columna: "Panamá vs Inglaterra", local: "Panamá", visitante: "Inglaterra" },
+        { columna: "Croacia vs Ghana", local: "Croacia", visitante: "Ghana" }
+    ]
+};
+let dbRespuestas = [];
+let filaMaestro = {};
+
+
+function obtenerValorColumna(objetoFila, nombreColumnaOriginal) {
+    if (!objetoFila) return "";
+    const limpiar = (texto) => texto.toString().toLowerCase().replace(/[\s_\-]/g, "");
+    const claveBuscada = limpiar(nombreColumnaOriginal);
+    
+    for (let clave in objetoFila) {
+        if (limpiar(clave) === claveBuscada) {
+            return objetoFila[clave];
+        }
+    }
+    return "";
+}
+
+
+window.onload = function() {
+    
+    fetch(URL_RANKING)
+    .then(res => res.json())
+    .then(players => {
+        players.sort((a,b) => Number(b["Puntos"]) - Number(a["Puntos"]));
+        const board = document.getElementById("leaderboard");
+        board.innerHTML = "";
+        players.forEach((player, index) => {
+            let rankClass = index === 0 ? "first" : index === 1 ? "second" : index === 2 ? "third" : "normal";
+            board.innerHTML += `
+                <div class="row">
+                    <div class="rank ${rankClass}">${index + 1}</div>
+                    <div class="name">${player["Nombre"].toUpperCase()}</div>
+                    <div class="points">${player["Puntos"]}</div>
+                </div>`;
+        });
+    });
+
+    
+    fetch(URL_RESPUESTAS)
+    .then(res => res.json())
+    .then(data => {
+        dbRespuestas = data;
+        
+       
+        filaMaestro = data.find(f => {
+            let nombre = obtenerValorColumna(f, "Nombre");
+            return nombre.toUpperCase() === "MAESTRO";
+        }) || data[0];
+        
+        const selectUser = document.getElementById("select-usuario");
+        selectUser.innerHTML = ""; 
+
+        const jugadores = data.filter(f => {
+            let nombre = obtenerValorColumna(f, "Nombre");
+            return nombre.toUpperCase() !== "MAESTRO" && nombre !== "";
+        });
+        
+        jugadores.forEach(j => {
+            let nombreUsuario = j["Nombre"] || j["nombre"] || obtenerValorColumna(j, "Nombre");
+            if(nombreUsuario) {
+                let opt = document.createElement("option");
+                opt.value = nombreUsuario;
+                opt.textContent = nombreUsuario.toUpperCase();
+                selectUser.appendChild(opt);
+            }
+        });
+
+        procesarSimulacion();
+    })
+    .catch(err => console.error("Error cargando usuarios: ", err));
+}
+
+
+function procesarSimulacion() {
+    const grupo = document.getElementById("select-grupo").value;
+    const usuarioElegido = document.getElementById("select-usuario").value;
+    const contenedor = document.getElementById("contenedor-simulador");
+    
+    if(!dbRespuestas.length || !usuarioElegido) return;
+
+    const jugadorData = dbRespuestas.find(f => {
+        let nombre = f["Nombre"] || f["nombre"] || obtenerValorColumna(f, "Nombre");
+        return nombre === usuarioElegido;
+    });
+    
+    const partidosGrupo = GRUPOS_FÚTBOL[grupo] || [];
+    let tablaPaises = {};
+    let htmlPartidos = `<h3 style="color:#64f5e6; margin: 30px 0 15px; font-size:1.2rem;">REVISIÓN DE PREDICCIONES</h3>`;
+
+    partidosGrupo.forEach(partido => {
+        let pred = obtenerValorColumna(jugadorData, partido.columna);
+        let real = obtenerValorColumna(filaMaestro, partido.columna);
+
+        if (!tablaPaises[partido.local]) tablaPaises[partido.local] = 0;
+        if (!tablaPaises[partido.visitante]) tablaPaises[partido.visitante] = 0;
+
+        
+        let predUpper = pred ? pred.toUpperCase().trim() : "";
+        let localUpper = partido.local.toUpperCase().trim();
+        let visitanteUpper = partido.visitante.toUpperCase().trim();
+
+       
+if (predUpper !== "") { 
+    if (predUpper === "GANA LOCAL" || predUpper.includes(localUpper)) {
+        tablaPaises[partido.local] += 3;
+    } 
+    else if (predUpper === "GANA VISITANTE" || predUpper.includes(visitanteUpper)) {
+        tablaPaises[partido.visitante] += 3;
+    } 
+    else if (predUpper.includes("EMPATE")) {
+        tablaPaises[partido.local] += 1;
+        tablaPaises[partido.visitante] += 1;
+    }
+}
+
+       
+        let esAcertado = (real && real.toUpperCase() !== "PENDIENTE" && real.toUpperCase() === predUpper);
+        let cardClass = esAcertado ? "match-card acertado" : "match-card";
+        let statusSigno = esAcertado ? 
+            '<span class="status-tag ok">✔ ACERTADO (+3 pts)</span>' : 
+            `<span class="status-tag fail">✘ NO ACERTADO (Real: ${real || 'Pendiente'})</span>`;
+
+        htmlPartidos += `
+            <div class="${cardClass}">
+                <div>
+                    <strong>${partido.local} vs ${partido.visitante}</strong><br>
+                    <span style="color:#b5dada; font-size:0.9rem;">Tu predicción: ${pred || 'Ninguna'}</span>
+                </div>
+                <div>${statusSigno}</div>
+            </div>`;
+    });
+
+    
+    let sortedPaises = Object.keys(tablaPaises).map(name => ({ name: name, pts: tablaPaises[name] }));
+    sortedPaises.sort((a,b) => b.pts - a.pts);
+
+    
+    let htmlTabla = `<h3 style="color:white; margin-bottom:15px; font-size:1.2rem;">TABLA SIMULADA DEL GRUPO</h3>`;
+    sortedPaises.forEach((pais, index) => {
+        htmlTabla += `
+            <div class="row">
+                <div class="rank normal" style="background:#003f42; font-size:1.5rem;">${index + 1}</div>
+                <div class="name">${pais.name.toUpperCase()}</div>
+                <div class="points" style="background:#ff6f00; color:white; font-size:1.5rem; width:100px;">${pais.pts} PTS</div>
+            </div>`;
+    });
+
+    contenedor.innerHTML = htmlTabla + htmlPartidos;
+}</script>
+<div class="hero">
+    <h6 style="color:white; font-size:0.8rem; font-style: italic;">*Cada partido acertado son 3 puntos. Acertar la final son 10 pts extras y el campeón 5 pts más.</h6>
+</div>
 
 </body>
 </html>
