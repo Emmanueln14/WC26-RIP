@@ -134,7 +134,7 @@ body::before{
 .rank.first{ background:#ff3a3a; }
 .rank.second{ background:#7c4dff; }
 .rank.third{ background:#00d6ff; }
-.rank.normal{ background:#ff6f00; }
+.rank.normal{ background:#003f42; }
 
 .name{
     background:black;
@@ -197,7 +197,7 @@ body::before{
     <div class="loading">Loading standings...</div>
 </div>
 
-<h2 class="section-title">🔮 SIMULADOR DE GRUPOS</h2>
+<h2 class="section-title">SIMULADOR DE GRUPOS</h2>
 <div class="filter-container">
     <div class="filter-box">
         <label for="select-grupo">1. SELECCIONA GRUPO</label>
@@ -231,15 +231,15 @@ body::before{
 
 const URL_RANKING = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Ranking";
 const URL_RESPUESTAS = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Respuestas%20de%20formulario%201";
-const URL_LIVE = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Resultados%20LIVE"; 
+const URL_LIVE = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Resultados%20LIVE?v=" + Math.random(); 
 
 
 const GRUPOS_FÚTBOL = {
     "A": [
         { columna: "República Checa vs Sudáfrica", local: "República Checa", visitante: "Sudáfrica" },
-        { columna: "México vs Corea del Sur", local: "México", visitante: "Corea del Sur" },
+        { columna: "México vs Corea del Sur", local: "México", visitante: "Corea", visitanteMostrar: "Corea del Sur" },
         { columna: "República Checa vs México", local: "República Checa", visitante: "México" },
-        { columna: "Sudáfrica vs Corea del Sur", local: "Sudáfrica", visitante: "Corea del Sur" }
+        { columna: "Sudáfrica vs Corea del Sur", local: "Sudáfrica", visitante: "Corea", visitanteMostrar: "Corea del Sur" }
     ],
     "B": [
         { columna: "Qatar vs Suiza", local: "Qatar", visitante: "Suiza" },
@@ -336,11 +336,15 @@ let filaMaestro = {};
 
 function obtenerValorColumna(objetoFila, nombreColumnaOriginal) {
     if (!objetoFila) return "";
-    const limpiar = (texto) => texto.toString().toLowerCase().replace(/[\s_\-]/g, "");
+    const limpiar = (texto) => texto.toString().toLowerCase().replace(/[^a-z0-9]/g, "");
     const claveBuscada = limpiar(nombreColumnaOriginal);
     
     for (let clave in objetoFila) {
-        if (limpiar(clave) === claveBuscada) return objetoFila[clave];
+        let claveFilaLimpia = limpiar(clave);
+        if (claveFilaLimpia.includes(claveBuscada) || claveBuscada.includes(claveFilaLimpia) || 
+            (claveBuscada.includes("corea") && claveFilaLimpia.includes("corea"))) { 
+            return objetoFila[clave];
+        }
     }
     return "";
 }
@@ -427,15 +431,17 @@ function procesarSimulacion() {
         if (!tablaPaises[partido.visitante]) tablaPaises[partido.visitante] = 0;
 
         let predUpper = pred ? pred.toUpperCase().trim() : "";
-        let localUpper = partido.local.toUpperCase().trim();
-        let visitanteUpper = partido.visitante.toUpperCase().trim();
-
+        const limpiarParaPuntos = (t) => t ? t.toString().toUpperCase().replace(/[^A-Z0-9]/g, "") : "";
         
+        let predLimpia = limpiarParaPuntos(predUpper);
+        let localLimpia = limpiarParaPuntos(partido.local);
+        let visitanteLimpia = limpiarParaPuntos(partido.visitante);
+
         if (predUpper !== "") {
-            if (predUpper === "GANA LOCAL" || predUpper.includes(localUpper)) {
+            if (predUpper === "GANA LOCAL" || predLimpia.includes(localLimpia)) {
                 tablaPaises[partido.local] += 3;
             } 
-            else if (predUpper === "GANA VISITANTE" || predUpper.includes(visitanteUpper)) {
+            else if (predUpper === "GANA VISITANTE" || predLimpia.includes(visitanteLimpia)) {
                 tablaPaises[partido.visitante] += 3;
             } 
             else if (predUpper.includes("EMPATE")) {
@@ -443,15 +449,12 @@ function procesarSimulacion() {
                 tablaPaises[partido.visitante] += 1;
             }
         }
-
-       
         let etiquetaLive = "";
         let esLive = false;
         
         if (dbLive && dbLive.length > 0) {
             const limpiarTexto = (t) => t ? t.toString().toLowerCase().replace(/[^a-z0-9]/g, "") : "";
             
-           
             let raizLocal = limpiarTexto(partido.local).substring(0, 3);
             let raizVisita = limpiarTexto(partido.visitante).substring(0, 3);
 
@@ -461,7 +464,6 @@ function procesarSimulacion() {
                 
                 if(!textoPartidoLimpio) return false;
 
-                
                 return textoPartidoLimpio.includes(raizLocal) && 
                        (textoPartidoLimpio.includes(raizVisita) || 
                         (partido.visitante.includes("Congo") && textoPartidoLimpio.includes("congo")));
@@ -476,7 +478,6 @@ function procesarSimulacion() {
             }
         }
 
-        
         let realLimpio = real ? real.toUpperCase().trim() : "";
         let esAcertado = (!esLive && real && !realLimpio.includes("PENDIENTE") && realLimpio === predUpper);
         
@@ -492,27 +493,30 @@ function procesarSimulacion() {
             statusSigno = `<span class="status-tag fail">✘ NO ACERTADO (Real: ${textoReal})</span>`;
         }
 
+        let nombreLocal = partido.localMostrar || partido.local;
+        let nombreVisita = partido.visitanteMostrar || partido.visitante;
+
         htmlPartidos += `
             <div class="${cardClass}">
                 <div>
-                    <strong>${partido.local} vs ${partido.visitante} ${etiquetaLive}</strong><br>
+                    <strong>${nombreLocal} vs ${nombreVisita} ${etiquetaLive}</strong><br>
                     <span style="color:#b5dada; font-size:0.9rem;">Tu predicción: ${pred || 'Ninguna'}</span>
                 </div>
                 <div>${statusSigno}</div>
             </div>`;
     });
 
-   
     let sortedPaises = Object.keys(tablaPaises).map(name => ({ name: name, pts: tablaPaises[name] }));
     sortedPaises.sort((a,b) => b.pts - a.pts);
 
-    
     let htmlTabla = `<h3 style="color:white; margin-bottom:15px; font-size:1.2rem;">TABLA SIMULADA DEL GRUPO</h3>`;
     sortedPaises.forEach((pais, index) => {
+        let nombrePaisImprimir = pais.name.toUpperCase() === "COREA" ? "COREA DEL SUR" : pais.name.toUpperCase();
+
         htmlTabla += `
             <div class="row">
                 <div class="rank normal" style="background:#003f42; font-size:1.5rem;">${index + 1}</div>
-                <div class="name">${pais.name.toUpperCase()}</div>
+                <div class="name">${nombrePaisImprimir}</div>
                 <div class="points" style="background:#ff6f00; color:white; font-size:1.5rem; width:100px;">${pais.pts} PTS</div>
             </div>`;
     });
