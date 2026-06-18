@@ -231,7 +231,7 @@ body::before{
 
 const URL_RANKING = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Ranking";
 const URL_RESPUESTAS = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Respuestas%20de%20formulario%201";
-const URL_LIVE = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Resultados%20LIVE?v=" + Math.random(); 
+const URL_LIVE = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Resultados%20LIVE"; 
 
 
 const GRUPOS_FÚTBOL = {
@@ -372,11 +372,12 @@ window.onload = function() {
    
     Promise.all([
         fetch(URL_RESPUESTAS).then(res => res.json()),
-        fetch(URL_LIVE).then(res => res.json()).catch(() => []) 
+               fetch(URL_LIVE + "?raw=true").then(res => res.json()).catch(() => []) 
     ])
     .then(([dataRespuestas, dataLive]) => {
         dbRespuestas = dataRespuestas;
-        dbLive = dataLive; 
+        
+        dbLive = Array.isArray(dataLive) ? dataLive : []; 
         
         filaMaestro = dataRespuestas.find(f => {
             let nombre = obtenerValorColumna(f, "Nombre");
