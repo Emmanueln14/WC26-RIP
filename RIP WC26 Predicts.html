@@ -436,24 +436,27 @@ window.onload = function() {
     .catch(err => console.error("Error cargando estructuras iniciales: ", err));
 }
 
-// --- REPRODUCTOR (ACCESIBLE GLOBALMENTE) ---
 function cargarStreamM3U8(url) {
     const video = document.getElementById("video-player");
     if (!video || !url) return;
 
+    
     if (hlsInstance) {
         hlsInstance.destroy();
+        hlsInstance = null;
     }
 
-    const configHls = {
-        maxBufferLength: 8,
-        maxMaxBufferLength: 15,
-        enableWorker: true,
-        lowLatencyMode: true,
-        backBufferLength: 0
-    };
+    const esHLS = url.includes("m3u8");
 
-    if (Hls.isSupported()) {
+    if (esHLS && Hls.isSupported()) {
+        const configHls = {
+            maxBufferLength: 8,
+            maxMaxBufferLength: 15,
+            enableWorker: true,
+            lowLatencyMode: true,
+            backBufferLength: 0
+        };
+
         hlsInstance = new Hls(configHls);
         hlsInstance.loadSource(url);
         hlsInstance.attachMedia(video);
@@ -462,29 +465,39 @@ function cargarStreamM3U8(url) {
             if (data.fatal) {
                 switch (data.type) {
                     case Hls.ErrorTypes.NETWORK_ERROR:
-                        console.log("Bache de red en el streaming, reintentando...");
                         hlsInstance.startLoad();
                         break;
                     case Hls.ErrorTypes.MEDIA_ERROR:
-                        console.log("Falta de sincronización, forzando recuperación...");
                         hlsInstance.recoverMediaError();
                         break;
                 }
             }
         });
-
-        if (!plyrPlayer) {
-            plyrPlayer = new Plyr(video, {
-                controls: ['play', 'progress', 'current-time', 'mute', 'volume', 'fullscreen'],
-                keyboard: { focused: true, global: true }
-            });
-        }
     } 
-    else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    
+    else {
+        console.log("Forzando decodificación en tiempo real para stream infinito...");
+        
+        
+        video.removeAttribute("src");
+        
+        
         video.src = url;
-        if (!plyrPlayer) {
-            plyrPlayer = new Plyr(video, { controls: ['play', 'progress', 'mute', 'volume', 'fullscreen'] });
-        }
+        
+        video.type = 'video/mp2t'; 
+        
+        
+        // video.type = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+        
+        video.load(); 
+    }
+
+    
+    if (!plyrPlayer) {
+        plyrPlayer = new Plyr(video, {
+            controls: ['play', 'current-time', 'mute', 'volume', 'fullscreen'], 
+            keyboard: { focused: true, global: true }
+        });
     }
 }
 
@@ -536,6 +549,7 @@ function cambiarFuente(fuente) {
     }
 }
 
+
 function procesarSimulacion() {
     const grupo = document.getElementById("select-grupo").value;
     const usuarioElegido = document.getElementById("select-usuario").value;
@@ -551,6 +565,7 @@ function procesarSimulacion() {
     const partidosGrupo = GRUPOS_FÚTBOL[grupo] || [];
     let tablaPaises = {};
     let htmlPartidos = `<h3 style="color:#64f5e6; margin: 30px 0 15px; font-size:1.2rem;">REVISIÓN DE PREDICCIONES</h3>`;
+    
     
     hayPartidoEnVivoEnEsteGrupo = false;
 
@@ -654,6 +669,7 @@ function procesarSimulacion() {
     });
 
     contenedor.innerHTML = htmlTabla + htmlPartidos;
+    
     
     actualizarVisibilidadReproductor();
 }
