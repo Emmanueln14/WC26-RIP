@@ -7,7 +7,9 @@
 <title>Predicciones RIP World Cup</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
-
+<link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
 <style>
 *{
     margin:0;
@@ -230,19 +232,14 @@ body::before{
     </h3>
     
     <div style="margin-bottom: 15px; display: flex; justify-content: center; gap: 10px;">
-        <button id="btn-fuente1" onclick="cambiarFuente('fuente1')" style="background: #ff3a3a; color: white; border: none; padding: 8px 16px; font-family: 'Montserrat', sans-serif; font-weight: 700; border-radius: 8px; cursor: pointer; transition: 0.2s;">OPCIÓN 1</button>
-        <button id="btn-fuente2" onclick="cambiarFuente('fuente2')" style="background: #003f42; color: #64f5e6; border: 2px solid #64f5e6; padding: 6px 14px; font-family: 'Montserrat', sans-serif; font-weight: 700; border-radius: 8px; cursor: pointer; transition: 0.2s;">OPCIÓN 2</button>
+        <button id="btn-fuente1" onclick="cambiarFuente('fuente1')" style="background: #ff3a3a; color: white; border: none; padding: 8px 16px; font-family: 'Montserrat', sans-serif; font-weight: 700; border-radius: 8px; cursor: pointer; transition: 0.2s;">Opción 1</button>
+        <button id="btn-fuente2" onclick="cambiarFuente('fuente2')" style="background: #003f42; color: #64f5e6; border: 2px solid #64f5e6; padding: 6px 14px; font-family: 'Montserrat', sans-serif; font-weight: 700; border-radius: 8px; cursor: pointer; transition: 0.2s;">Opción 2</button>
     </div>
 
-    <iframe width="100%" height="450" 
-            src="" 
-            frameborder="0" 
-            allow="autoplay; encrypted-media; fullscreen" 
-            allowfullscreen 
-            style="border-radius: 20px; border: 2px solid #ff3a3a; box-shadow: 0 0 20px rgba(255, 58, 58, 0.25);">
-    </iframe>
+    <div class="video-wrapper" style="border-radius: 20px; overflow: hidden; border: 2px solid #ff3a3a; box-shadow: 0 0 20px rgba(255, 58, 58, 0.25);">
+        <video id="video-player" controls crossorigin playsinline></video>
+    </div>
 </div>
-
 <div id="contenedor-simulador" class="leaderboard">
 </div>
 
@@ -254,9 +251,16 @@ const URL_LIVE = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSR
 const URL_CONFIG = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Config";
 
 
+let plyrPlayer = null;
+let hlsInstance = null;
 let streamFuente1 = "";
 let streamFuente2 = "";
 let fuenteActualSeleccionada = "fuente1";
+let hayPartidoEnVivoEnEsteGrupo = false;
+
+let dbRespuestas = [];
+let dbLive = []; 
+let filaMaestro = {};
 
 const GRUPOS_FÚTBOL = {
     "A": [
@@ -354,11 +358,6 @@ const GRUPOS_FÚTBOL = {
     ]
 };
 
-
-let dbRespuestas = [];
-let dbLive = []; 
-let filaMaestro = {};
-
 function obtenerValorColumna(objetoFila, nombreColumnaOriginal) {
     if (!objetoFila) return "";
     const limpiar = (texto) => texto.toString().toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -395,12 +394,11 @@ window.onload = function() {
     Promise.all([
         fetch(URL_RESPUESTAS).then(res => res.json()),
         fetch(URL_LIVE + "?raw=true").then(res => res.json()).catch(() => []),
-        fetch(URL_CONFIG).then(res => res.json()).catch(() => []) // Descarga los links de la nueva pestaña
+        fetch(URL_CONFIG).then(res => res.json()).catch(() => [])
     ])
     .then(([dataRespuestas, dataLive, dataConfig]) => {
         dbRespuestas = dataRespuestas;
         dbLive = Array.isArray(dataLive) ? dataLive : []; 
-        
         
         if (dataConfig && dataConfig.length > 0) {
             let f1 = dataConfig.find(c => (c["Clave"] || c["clave"] || "").toString().toUpperCase().trim() === "STREAM_FUENTE_1");
@@ -438,6 +436,106 @@ window.onload = function() {
     .catch(err => console.error("Error cargando estructuras iniciales: ", err));
 }
 
+// --- REPRODUCTOR (ACCESIBLE GLOBALMENTE) ---
+function cargarStreamM3U8(url) {
+    const video = document.getElementById("video-player");
+    if (!video || !url) return;
+
+    if (hlsInstance) {
+        hlsInstance.destroy();
+    }
+
+    const configHls = {
+        maxBufferLength: 8,
+        maxMaxBufferLength: 15,
+        enableWorker: true,
+        lowLatencyMode: true,
+        backBufferLength: 0
+    };
+
+    if (Hls.isSupported()) {
+        hlsInstance = new Hls(configHls);
+        hlsInstance.loadSource(url);
+        hlsInstance.attachMedia(video);
+        
+        hlsInstance.on(Hls.Events.ERROR, function (event, data) {
+            if (data.fatal) {
+                switch (data.type) {
+                    case Hls.ErrorTypes.NETWORK_ERROR:
+                        console.log("Bache de red en el streaming, reintentando...");
+                        hlsInstance.startLoad();
+                        break;
+                    case Hls.ErrorTypes.MEDIA_ERROR:
+                        console.log("Falta de sincronización, forzando recuperación...");
+                        hlsInstance.recoverMediaError();
+                        break;
+                }
+            }
+        });
+
+        if (!plyrPlayer) {
+            plyrPlayer = new Plyr(video, {
+                controls: ['play', 'progress', 'current-time', 'mute', 'volume', 'fullscreen'],
+                keyboard: { focused: true, global: true }
+            });
+        }
+    } 
+    else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = url;
+        if (!plyrPlayer) {
+            plyrPlayer = new Plyr(video, { controls: ['play', 'progress', 'mute', 'volume', 'fullscreen'] });
+        }
+    }
+}
+
+function actualizarVisibilidadReproductor() {
+    const elementVideo = document.getElementById("contenedor-video-live");
+    if (!elementVideo) return;
+
+    const urlObjetivo = (fuenteActualSeleccionada === "fuente1") ? streamFuente1 : streamFuente2;
+
+    if (hayPartidoEnVivoEnEsteGrupo && urlObjetivo) {
+        if (elementVideo.style.display !== "block") {
+            elementVideo.style.display = "block";
+        }
+        const videoElement = document.getElementById("video-player");
+        if (videoElement && !videoElement.src && !hlsInstance) {
+            cargarStreamM3U8(urlObjetivo);
+        }
+    } else {
+        if (hlsInstance) {
+            hlsInstance.destroy();
+            hlsInstance = null;
+        }
+        if (plyrPlayer) {
+            plyrPlayer.destroy();
+            plyrPlayer = null;
+        }
+        elementVideo.style.display = "none";  
+    }
+}
+
+function cambiarFuente(fuente) {
+    fuenteActualSeleccionada = fuente;
+    const btn1 = document.getElementById("btn-fuente1");
+    const btn2 = document.getElementById("btn-fuente2");
+    const urlObjetivo = (fuente === "fuente1") ? streamFuente1 : streamFuente2;
+
+    console.log("Cambiando manualmente a:", fuente, urlObjetivo);
+
+    if (urlObjetivo) {
+        cargarStreamM3U8(urlObjetivo);
+    }
+
+    if (fuente === "fuente1") {
+        btn1.style.background = "#ff3a3a"; btn1.style.color = "white"; btn1.style.border = "none";
+        btn2.style.background = "#003f42"; btn2.style.color = "#64f5e6"; btn2.style.border = "2px solid #64f5e6";
+    } else {
+        btn2.style.background = "#ff3a3a"; btn2.style.color = "white"; btn2.style.border = "none";
+        btn1.style.background = "#003f42"; btn1.style.color = "#64f5e6"; btn1.style.border = "2px solid #64f5e6";
+    }
+}
+
 function procesarSimulacion() {
     const grupo = document.getElementById("select-grupo").value;
     const usuarioElegido = document.getElementById("select-usuario").value;
@@ -454,8 +552,7 @@ function procesarSimulacion() {
     let tablaPaises = {};
     let htmlPartidos = `<h3 style="color:#64f5e6; margin: 30px 0 15px; font-size:1.2rem;">REVISIÓN DE PREDICCIONES</h3>`;
     
-    
-    let hayPartidoEnVivoEnEsteGrupo = false;
+    hayPartidoEnVivoEnEsteGrupo = false;
 
     partidosGrupo.forEach(partido => {
         let pred = obtenerValorColumna(jugadorData, partido.columna);
@@ -507,7 +604,6 @@ function procesarSimulacion() {
                 let estadoActual = partidoEncontrado["Estado"] || partidoEncontrado["estado"] || "";
                 if (estadoActual.trim() !== "" && !estadoActual.includes("http")) {
                     esLive = true;
-                    
                     hayPartidoEnVivoEnEsteGrupo = true; 
                     etiquetaLive = `<span style="background: #ff3a3a; color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; margin-left: 10px; font-weight: 900; letter-spacing: 1px; box-shadow: 0 0 8px #ff3a3a; animation: parpadeo 1s infinite;">🔴 ${estadoActual}</span>`;
                 }
@@ -542,24 +638,6 @@ function procesarSimulacion() {
             </div>`;
     });
 
-    
-    const elementVideo = document.getElementById("contenedor-video-live");
-    if (elementVideo) {
-        const iframe = elementVideo.querySelector("iframe");
-        const urlObjetivo = (fuenteActualSeleccionada === "fuente1") ? streamFuente1 : streamFuente2;
-
-        
-        if (hayPartidoEnVivoEnEsteGrupo && urlObjetivo) {
-            if (iframe.src !== urlObjetivo) {
-                iframe.src = urlObjetivo;
-            }
-            elementVideo.style.display = "block"; 
-        } else {
-            iframe.src = "";
-            elementVideo.style.display = "none";  
-        }
-    }
-
     let sortedPaises = Object.keys(tablaPaises).map(name => ({ name: name, pts: tablaPaises[name] }));
     sortedPaises.sort((a,b) => b.pts - a.pts);
 
@@ -576,26 +654,8 @@ function procesarSimulacion() {
     });
 
     contenedor.innerHTML = htmlTabla + htmlPartidos;
-}
-
-function cambiarFuente(fuente) {
-    fuenteActualSeleccionada = fuente;
-    const iframe = document.querySelector("#contenedor-video-live iframe");
-    const btn1 = document.getElementById("btn-fuente1");
-    const btn2 = document.getElementById("btn-fuente2");
-
-    if (!iframe) return;
-
-    const urlObjetivo = (fuente === "fuente1") ? streamFuente1 : streamFuente2;
-    iframe.src = urlObjetivo;
-
-    if (fuente === "fuente1") {
-        btn1.style.background = "#ff3a3a"; btn1.style.color = "white"; btn1.style.border = "none";
-        btn2.style.background = "#003f42"; btn2.style.color = "#64f5e6"; btn2.style.border = "2px solid #64f5e6";
-    } else {
-        btn2.style.background = "#ff3a3a"; btn2.style.color = "white"; btn2.style.border = "none";
-        btn1.style.background = "#003f42"; btn1.style.color = "#64f5e6"; btn1.style.border = "2px solid #64f5e6";
-    }
+    
+    actualizarVisibilidadReproductor();
 }
 
 </script>
@@ -606,4 +666,3 @@ function cambiarFuente(fuente) {
 
 </body>
 </html>
-
