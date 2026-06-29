@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>Predicciones RIP World Cup</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
@@ -73,17 +72,16 @@ body::before{
     text-shadow: 0 0 10px #00e6d0;
 }
 
-
 .filter-container {
     max-width: 900px;
     margin: 0 auto 20px auto;
     padding: 0 20px;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr; 
     gap: 15px;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
     .filter-container { grid-template-columns: 1fr; }
 }
 
@@ -108,7 +106,6 @@ body::before{
     outline: none;
     cursor: pointer;
 }
-
 
 .leaderboard{
     max-width:900px;
@@ -159,23 +156,68 @@ body::before{
     font-weight:900;
 }
 
-
 .match-card {
     background: black;
     color: white;
     padding: 15px 25px;
     border-radius: 15px;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column; 
     border-left: 5px solid #ff6f00;
 }
 .match-card.acertado { border-left: 5px solid #64f5e6; }
+
+.match-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
 .status-tag { font-weight: 800; font-size: 0.9rem; }
 .status-tag.ok { color: #64f5e6; }
 .status-tag.fail { color: #ff3a3a; }
 .status-tag.wait { color: #ffeb3b; }
+
+
+.pie-predicciones {
+    background: rgba(255, 255, 255, 0.04);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 12px;
+    margin-top: 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    width: 100%;
+}
+
+.pie-predicciones h4 {
+    margin: 0 0 8px 0;
+    color: #64f5e6;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.votos-bandos {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.bando {
+    color: #b5dada;
+}
+
+.bando.ganador {
+    color: #64f5e6;
+}
+
+.bando.perdedor {
+    color: #ff3a3a;
+    text-decoration: line-through;
+    opacity: 0.5;
+}
 
 .loading{ color:white; text-align:center; margin-top:20px; font-size:1.2rem; }
 
@@ -199,11 +241,19 @@ body::before{
     <div class="loading">Loading standings...</div>
 </div>
 
-<h2 class="section-title">SIMULADOR DE GRUPOS</h2>
+<h2 class="section-title" id="titulo-seccion-simulador">SIMULADOR DE TORNEO</h2>
 <div class="filter-container">
     <div class="filter-box">
-        <label for="select-grupo">1. SELECCIONA GRUPO</label>
-        <select id="select-grupo" onchange="procesarSimulacion()">
+        <label for="select-fase">1. ELIGE ESTRUCTURA</label>
+        <select id="select-fase" onchange="cambiarFaseTorneo()">
+            <option value="GRUPOS">FASE DE GRUPOS</option>
+            <option value="KNOCKOUT">ELIMINATORIAS (KNOCKOUT)</option>
+        </select>
+    </div>
+
+    <div class="filter-box" id="box-filtro-grupo">
+        <label for="select-grupo">2. SELECCIONA GRUPO</label>
+        <select id="select-grupo" onchange="procesarFaseActual()">
             <option value="A">GRUPO A</option>
             <option value="B">GRUPO B</option>
             <option value="C">GRUPO C</option>
@@ -220,8 +270,8 @@ body::before{
     </div>
 
     <div class="filter-box">
-        <label for="select-usuario">2. VER PREDICCIONES DE:</label>
-        <select id="select-usuario" onchange="procesarSimulacion()">
+        <label for="select-usuario">3. VER PREDICCIONES DE:</label>
+        <select id="select-usuario" onchange="procesarFaseActual()">
         </select>
     </div>
 </div>
@@ -240,16 +290,16 @@ body::before{
         <video id="video-player" controls crossorigin playsinline></video>
     </div>
 </div>
+
 <div id="contenedor-simulador" class="leaderboard">
 </div>
 
 <script>
-
 const URL_RANKING = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Ranking";
 const URL_RESPUESTAS = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Respuestas%20de%20formulario%201";
 const URL_LIVE = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Resultados%20LIVE";
 const URL_CONFIG = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/Config";
-
+const URL_KNOCKOUT = "https://opensheet.elk.sh/1hQ6sErDXpmFgjeMBuSOgYqKkMzyIRx0PINSRnMxbYTc/knockout"; 
 
 let plyrPlayer = null;
 let hlsInstance = null;
@@ -260,6 +310,7 @@ let hayPartidoEnVivoEnEsteGrupo = false;
 
 let dbRespuestas = [];
 let dbLive = []; 
+let dbKnockoutRaw = []; 
 let filaMaestro = {};
 
 const GRUPOS_FÚTBOL = {
@@ -365,8 +416,7 @@ function obtenerValorColumna(objetoFila, nombreColumnaOriginal) {
     
     for (let clave in objetoFila) {
         let claveFilaLimpia = limpiar(clave);
-        if (claveFilaLimpia.includes(claveBuscada) || claveBuscada.includes(claveFilaLimpia) || 
-            (claveBuscada.includes("corea") && claveFilaLimpia.includes("corea"))) { 
+        if (claveFilaLimpia === claveBuscada || claveFilaLimpia.includes(claveBuscada)) { 
             return objetoFila[clave];
         }
     }
@@ -377,47 +427,72 @@ window.onload = function() {
     fetch(URL_RANKING)
     .then(res => res.json())
     .then(players => {
-        players.sort((a,b) => Number(b["Puntos"]) - Number(a["Puntos"]));
         const board = document.getElementById("leaderboard");
+        
+        if (!Array.isArray(players)) {
+            console.error("Error en URL_RANKING: La respuesta no es un array válido. Recibido:", players);
+            board.innerHTML = `<div class="loading" style="color:#ff3a3a;">Error al cargar el ranking (Verifica la URL o pestaña)</div>`;
+            return;
+        }
+
+        players.sort((a,b) => Number(b["Puntos"]) - Number(a["Puntos"]));
         board.innerHTML = "";
         players.forEach((player, index) => {
             let rankClass = index === 0 ? "first" : index === 1 ? "second" : index === 2 ? "third" : "normal";
+            let nombrePlayer = player["Nombre"] || player["nombre"] || "Anónimo";
+            let puntosPlayer = player["Puntos"] || 0;
             board.innerHTML += `
                 <div class="row">
                     <div class="rank ${rankClass}">${index + 1}</div>
-                    <div class="name">${player["Nombre"].toUpperCase()}</div>
-                    <div class="points">${player["Puntos"]}</div>
+                    <div class="name">${nombrePlayer.toUpperCase()}</div>
+                    <div class="points">${puntosPlayer}</div>
                 </div>`;
         });
+    })
+    .catch(err => {
+        console.error("Error crítico cargando ranking:", err);
+        document.getElementById("leaderboard").innerHTML = `<div class="loading" style="color:#ff3a3a;">Error de red al cargar ranking</div>`;
     });
 
     Promise.all([
-        fetch(URL_RESPUESTAS).then(res => res.json()),
+        fetch(URL_RESPUESTAS).then(res => res.json()).catch(err => ({ error: true, detalle: err })),
         fetch(URL_LIVE + "?raw=true").then(res => res.json()).catch(() => []),
-        fetch(URL_CONFIG).then(res => res.json()).catch(() => [])
+        fetch(URL_CONFIG).then(res => res.json()).catch(() => []),
+        fetch(URL_KNOCKOUT).then(res => res.json()).catch(err => ({ error: true, detalle: err }))
     ])
-    .then(([dataRespuestas, dataLive, dataConfig]) => {
+    .then(([dataRespuestas, dataLive, dataConfig, dataKnockout]) => {
+        
+        if (!Array.isArray(dataRespuestas)) {
+            console.error("Error en URL_RESPUESTAS: No se recibió un array. Respuesta de la API:", dataRespuestas);
+            document.getElementById("contenedor-simulador").innerHTML = `<div class="loading" style="color:#ff3a3a;">Error: La pestaña de Respuestas no se leyó correctamente.</div>`;
+            return;
+        }
+
         dbRespuestas = dataRespuestas;
         dbLive = Array.isArray(dataLive) ? dataLive : []; 
+        dbKnockoutRaw = Array.isArray(dataKnockout) ? dataKnockout : [];
         
-        if (dataConfig && dataConfig.length > 0) {
+        if (!Array.isArray(dataKnockout)) {
+            console.warn("Advertencia en URL_KNOCKOUT: No se recibió un array válido de eliminatorias.", dataKnockout);
+        }
+
+        if (dataConfig && dataConfig.length > 0 && Array.isArray(dataConfig)) {
             let f1 = dataConfig.find(c => (c["Clave"] || c["clave"] || "").toString().toUpperCase().trim() === "STREAM_FUENTE_1");
             let f2 = dataConfig.find(c => (c["Clave"] || c["clave"] || "").toString().toUpperCase().trim() === "STREAM_FUENTE_2");
-
             streamFuente1 = f1 ? (f1["Valor"] || f1["valor"] || "") : "";
             streamFuente2 = f2 ? (f2["Valor"] || f2["valor"] || "") : "";
         }
 
         filaMaestro = dataRespuestas.find(f => {
-            let nombre = obtenerValorColumna(f, "Nombre");
+            let nombre = f["Nombre"] || f["nombre"] || obtenerValorColumna(f, "Nombre") || "";
             return nombre.toUpperCase() === "MAESTRO";
-        }) || dataRespuestas[0];
+        }) || dataRespuestas[0] || {};
         
         const selectUser = document.getElementById("select-usuario");
         selectUser.innerHTML = ""; 
 
         const jugadores = dataRespuestas.filter(f => {
-            let nombre = obtenerValorColumna(f, "Nombre");
+            let nombre = f["Nombre"] || f["nombre"] || obtenerValorColumna(f, "Nombre") || "";
             return nombre.toUpperCase() !== "MAESTRO" && nombre !== "";
         });
         
@@ -431,125 +506,34 @@ window.onload = function() {
             }
         });
 
-        procesarSimulacion();
+        procesarFaseActual();
     })
-    .catch(err => console.error("Error cargando estructuras iniciales: ", err));
+    .catch(err => console.error("Error general en el hilo de inicialización: ", err));
 }
 
-function cargarStreamM3U8(url) {
-    const video = document.getElementById("video-player");
-    if (!video || !url) return;
+function cambiarFaseTorneo() {
+    const fase = document.getElementById("select-fase").value;
+    const boxGrupo = document.getElementById("box-filtro-grupo");
+    const tituloSeccion = document.getElementById("titulo-seccion-simulador");
 
-    
-    if (hlsInstance) {
-        hlsInstance.destroy();
-        hlsInstance = null;
-    }
-
-    const esHLS = url.includes("m3u8");
-
-    if (esHLS && Hls.isSupported()) {
-        const configHls = {
-            maxBufferLength: 8,
-            maxMaxBufferLength: 15,
-            enableWorker: true,
-            lowLatencyMode: true,
-            backBufferLength: 0
-        };
-
-        hlsInstance = new Hls(configHls);
-        hlsInstance.loadSource(url);
-        hlsInstance.attachMedia(video);
-        
-        hlsInstance.on(Hls.Events.ERROR, function (event, data) {
-            if (data.fatal) {
-                switch (data.type) {
-                    case Hls.ErrorTypes.NETWORK_ERROR:
-                        hlsInstance.startLoad();
-                        break;
-                    case Hls.ErrorTypes.MEDIA_ERROR:
-                        hlsInstance.recoverMediaError();
-                        break;
-                }
-            }
-        });
-    } 
-    
-    else {
-        console.log("Forzando decodificación en tiempo real para stream infinito...");
-        
-        
-        video.removeAttribute("src");
-        
-        
-        video.src = url;
-        
-        video.type = 'video/mp2t'; 
-        
-        
-        // video.type = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
-        
-        video.load(); 
-    }
-
-    
-    if (!plyrPlayer) {
-        plyrPlayer = new Plyr(video, {
-            controls: ['play', 'current-time', 'mute', 'volume', 'fullscreen'], 
-            keyboard: { focused: true, global: true }
-        });
-    }
-}
-
-function actualizarVisibilidadReproductor() {
-    const elementVideo = document.getElementById("contenedor-video-live");
-    if (!elementVideo) return;
-
-    const urlObjetivo = (fuenteActualSeleccionada === "fuente1") ? streamFuente1 : streamFuente2;
-
-    if (hayPartidoEnVivoEnEsteGrupo && urlObjetivo) {
-        if (elementVideo.style.display !== "block") {
-            elementVideo.style.display = "block";
-        }
-        const videoElement = document.getElementById("video-player");
-        if (videoElement && !videoElement.src && !hlsInstance) {
-            cargarStreamM3U8(urlObjetivo);
-        }
+    if (fase === "KNOCKOUT") {
+        boxGrupo.style.display = "none"; 
+        tituloSeccion.textContent = "ELIMINATORIAS DIRECTAS";
     } else {
-        if (hlsInstance) {
-            hlsInstance.destroy();
-            hlsInstance = null;
-        }
-        if (plyrPlayer) {
-            plyrPlayer.destroy();
-            plyrPlayer = null;
-        }
-        elementVideo.style.display = "none";  
+        boxGrupo.style.display = "flex";
+        tituloSeccion.textContent = "SIMULADOR DE GRUPOS";
     }
+    procesarFaseActual();
 }
 
-function cambiarFuente(fuente) {
-    fuenteActualSeleccionada = fuente;
-    const btn1 = document.getElementById("btn-fuente1");
-    const btn2 = document.getElementById("btn-fuente2");
-    const urlObjetivo = (fuente === "fuente1") ? streamFuente1 : streamFuente2;
-
-    console.log("Cambiando manualmente a:", fuente, urlObjetivo);
-
-    if (urlObjetivo) {
-        cargarStreamM3U8(urlObjetivo);
-    }
-
-    if (fuente === "fuente1") {
-        btn1.style.background = "#ff3a3a"; btn1.style.color = "white"; btn1.style.border = "none";
-        btn2.style.background = "#003f42"; btn2.style.color = "#64f5e6"; btn2.style.border = "2px solid #64f5e6";
+function procesarFaseActual() {
+    const fase = document.getElementById("select-fase").value;
+    if (fase === "KNOCKOUT") {
+        procesarKnockouts();
     } else {
-        btn2.style.background = "#ff3a3a"; btn2.style.color = "white"; btn2.style.border = "none";
-        btn1.style.background = "#003f42"; btn1.style.color = "#64f5e6"; btn1.style.border = "2px solid #64f5e6";
+        procesarSimulacion();
     }
 }
-
-
 function procesarSimulacion() {
     const grupo = document.getElementById("select-grupo").value;
     const usuarioElegido = document.getElementById("select-usuario").value;
@@ -565,7 +549,6 @@ function procesarSimulacion() {
     const partidosGrupo = GRUPOS_FÚTBOL[grupo] || [];
     let tablaPaises = {};
     let htmlPartidos = `<h3 style="color:#64f5e6; margin: 30px 0 15px; font-size:1.2rem;">REVISIÓN DE PREDICCIONES</h3>`;
-    
     
     hayPartidoEnVivoEnEsteGrupo = false;
 
@@ -601,13 +584,12 @@ function procesarSimulacion() {
         if (dbLive && dbLive.length > 0) {
             const limpiarTexto = (t) => t ? t.toString().toLowerCase().replace(/[^a-z0-9]/g, "") : "";
             
-            let raizLocal = limpiarTexto(partido.local).substring(0, 3);
-            let raizVisita = limpiarTexto(partido.visitante).substring(0, 3);
+            let raizLocal = limpiarTexto(partido.local).substring(0, 4);
+            let raizVisita = limpiarTexto(partido.visitante).substring(0, 4);
 
             let partidoEncontrado = dbLive.find(l => {
                 let textoPartidoSheet = l["Partido"] || l["partido"] || "";
                 let textoPartidoLimpio = limpiarTexto(textoPartidoSheet);
-                
                 if(!textoPartidoLimpio) return false;
 
                 return textoPartidoLimpio.includes(raizLocal) && 
@@ -619,6 +601,7 @@ function procesarSimulacion() {
                 let estadoActual = partidoEncontrado["Estado"] || partidoEncontrado["estado"] || "";
                 if (estadoActual.trim() !== "" && !estadoActual.includes("http")) {
                     esLive = true;
+                    hayPARTIDOENVIVO = true; 
                     hayPartidoEnVivoEnEsteGrupo = true; 
                     etiquetaLive = `<span style="background: #ff3a3a; color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; margin-left: 10px; font-weight: 900; letter-spacing: 1px; box-shadow: 0 0 8px #ff3a3a; animation: parpadeo 1s infinite;">🔴 ${estadoActual}</span>`;
                 }
@@ -627,7 +610,6 @@ function procesarSimulacion() {
 
         let realLimpio = real ? real.toUpperCase().trim() : "";
         let esAcertado = (!esLive && real && !realLimpio.includes("PENDIENTE") && realLimpio === predUpper);
-        
         let cardClass = esAcertado ? "match-card acertado" : "match-card";
         
         let statusSigno = "";
@@ -645,11 +627,13 @@ function procesarSimulacion() {
 
         htmlPartidos += `
             <div class="${cardClass}">
-                <div>
-                    <strong>${nombreLocal} vs ${nombreVisita} ${etiquetaLive}</strong><br>
-                    <span style="color:#b5dada; font-size:0.9rem;">Tu predicción: ${pred || 'Ninguna'}</span>
+                <div class="match-card-top">
+                    <div>
+                        <strong>${nombreLocal} vs ${nombreVisita} ${etiquetaLive}</strong><br>
+                        <span style="color:#b5dada; font-size:0.9rem;">Tu predicción: ${pred || 'Ninguna'}</span>
+                    </div>
+                    <div>${statusSigno}</div>
                 </div>
-                <div>${statusSigno}</div>
             </div>`;
     });
 
@@ -659,7 +643,6 @@ function procesarSimulacion() {
     let htmlTabla = `<h3 style="color:white; margin-bottom:15px; font-size:1.2rem;">TABLA SIMULADA DEL GRUPO</h3>`;
     sortedPaises.forEach((pais, index) => {
         let nombrePaisImprimir = pais.name.toUpperCase() === "COREA" ? "COREA DEL SUR" : pais.name.toUpperCase();
-
         htmlTabla += `
             <div class="row">
                 <div class="rank normal" style="background:#003f42; font-size:1.5rem;">${index + 1}</div>
@@ -669,11 +652,226 @@ function procesarSimulacion() {
     });
 
     contenedor.innerHTML = htmlTabla + htmlPartidos;
-    
-    
     actualizarVisibilidadReproductor();
 }
 
+function procesarKnockouts() {
+    const usuarioElegido = document.getElementById("select-usuario").value;
+    const contenedor = document.getElementById("contenedor-simulador");
+    
+    if (!dbKnockoutRaw || dbKnockoutRaw.length < 3) {
+        contenedor.innerHTML = `<div class="loading">No hay estructura cargada en la pestaña knockout...</div>`;
+        return;
+    }
+
+    let filaStage = dbKnockoutRaw[0];     
+    let filaPartidos = dbKnockoutRaw[1];   
+    let filaResultados = dbKnockoutRaw[2]; 
+
+    let llavesPartidos = Object.keys(filaPartidos).filter(key => {
+        return key.toLowerCase().startsWith("match ") && filaPartidos[key];
+    });
+
+    let dbAmigosKnockout = dbKnockoutRaw.slice(4); 
+
+    let datosUsuarioActual = dbAmigosKnockout.find(f => {
+        let n = f["MATCH"] || f["Match"] || f["Nombres"] || f["usuario"] || "";
+        return n.trim().toUpperCase() === usuarioElegido.trim().toUpperCase();
+    });
+
+    let htmlKnockout = `<h3 style="color:#64f5e6; margin-bottom: 20px; font-size:1.2rem;">ETAPA DE ELIMINACIÓN DIRECTA</h3>`;
+    hayPartidoEnVivoEnEsteGrupo = false; 
+
+    llavesPartidos.forEach(key => {
+        let stageNombre = filaStage[key] || "Knockout Stage";
+        let partidoNombre = filaPartidos[key] || "";       
+        let resultadoReal = (filaResultados[key] || "").trim();
+        
+        if (!partidoNombre || partidoNombre.toLowerCase() === "versus") return; 
+
+        let partes = partidoNombre.split(/ vs /i);
+        let local = partes[0] ? partes[0].trim() : "Local";
+        let visitante = partes[1] ? partes[1].trim() : "Visitante";
+
+        let prediccionUsuario = datosUsuarioActual ? (datosUsuarioActual[key] || "") : "";
+
+        let votaronLocal = [];
+        let votaronVisitante = [];
+
+        dbAmigosKnockout.forEach(amigo => {
+            let nombreAmigo = amigo["MATCH"] || amigo["Nombres"] || "Anónimo";
+            let votoAmigo = (amigo[key] || "").trim();
+            
+            if (!nombreAmigo || nombreAmigo.trim() === "" || !isNaN(nombreAmigo)) return;
+
+            if (votoAmigo.toLowerCase() === local.toLowerCase() || votoAmigo.toLowerCase().includes(local.toLowerCase())) {
+                votaronLocal.push(nombreAmigo.toUpperCase());
+            } else if (votoAmigo.toLowerCase() === visitante.toLowerCase() || votoAmigo.toLowerCase().includes(visitante.toLowerCase())) {
+                votaronVisitante.push(nombreAmigo.toUpperCase());
+            }
+        });
+
+        let etiquetaLive = "";
+        let esLive = false;
+
+        if (dbLive && dbLive.length > 0) {
+            const limpiarTexto = (t) => t ? t.toString().toLowerCase().replace(/[^a-z0-9]/g, "") : "";
+            let raizLocal = limpiarTexto(local).substring(0, 4);
+            let raizVisita = limpiarTexto(visitante).substring(0, 4);
+
+            let partidoEncontrado = dbLive.find(l => {
+                let textoPartidoSheet = l["Partido"] || l["partidomatch"] || l["partido"] || "";
+                let textoPartidoLimpio = limpiarTexto(textoPartidoSheet);
+                return textoPartidoLimpio.includes(raizLocal) && textoPartidoLimpio.includes(raizVisita);
+            });
+
+            if (partidoEncontrado) {
+                let estadoActual = partidoEncontrado["Estado"] || partidoEncontrado["estado"] || "";
+                if (estadoActual.trim() !== "" && !estadoActual.includes("http")) {
+                    esLive = true;
+                    hayPartidoEnVivoEnEsteGrupo = true;
+                    etiquetaLive = `<span style="background: #ff3a3a; color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; margin-left: 10px; font-weight: 900; letter-spacing: 1px; box-shadow: 0 0 8px #ff3a3a; animation: parpadeo 1s infinite;">🔴 ${estadoActual}</span>`;
+                }
+            }
+        }
+
+        let resRealUpper = resultadoReal.toUpperCase();
+        let predUserUpper = prediccionUsuario.trim().toUpperCase();
+        
+        let esAcertado = (!esLive && resultadoReal && !resRealUpper.includes("PENDIENTE") && !resRealUpper.includes("---") && 
+            (resRealUpper === predUserUpper || predUserUpper.includes(resRealUpper) || resRealUpper.includes(predUserUpper)));
+
+        let cardClass = esAcertado ? "match-card acertado" : "match-card";
+        let statusSigno = "";
+
+        if (esLive) {
+            statusSigno = '<span class="status-tag wait" style="animation: parpadeo 1.5s infinite;">⏳ EN CURSO</span>';
+        } else if (esAcertado) {
+            statusSigno = '<span class="status-tag ok">✔ ACERTADO (+3 pts)</span>';
+        } else {
+            let textoReal = (resultadoReal && resultadoReal !== "---") ? resultadoReal : 'Pendiente';
+            statusSigno = `<span class="status-tag fail">✘ NO ACERTADO (Ganó: ${textoReal})</span>`;
+        }
+
+        let claseLocal = "";
+        let claseVisitante = "";
+        if (resultadoReal && !resRealUpper.includes("PENDIENTE") && !resRealUpper.includes("---") && !esLive) {
+            claseLocal = (resRealUpper.includes(local.toUpperCase())) ? "ganador" : "perdedor";
+            claseVisitante = (resRealUpper.includes(visitante.toUpperCase())) ? "ganador" : "perdedor";
+        }
+
+        htmlKnockout += `
+            <div class="${cardClass}">
+                <div class="match-card-top">
+                    <div>
+                        <span style="color: #ff6f00; font-size: 0.75rem; font-weight:900; letter-spacing:1px; text-transform:uppercase;">${stageNombre}</span><br>
+                        <strong style="font-size: 1.1rem;">${local} vs ${visitante} ${etiquetaLive}</strong><br>
+                        <span style="color:#b5dada; font-size:0.9rem;">Tu predicción: ${prediccionUsuario || 'Ninguna'}</span>
+                    </div>
+                    <div>${statusSigno}</div>
+                </div>
+                
+                <div class="pie-predicciones">
+                    <h4>¿Quién votó a quién?</h4>
+                    <div class="votos-bandos">
+                        <div class="bando ${claseLocal}">
+                            <strong>⚽ ${local}:</strong> ${votaronLocal.length > 0 ? votaronLocal.join(", ") : "Nadie"}
+                        </div>
+                        <div class="bando ${claseVisitante}">
+                            <strong>⚽ ${visitante}:</strong> ${votaronVisitante.length > 0 ? votaronVisitante.join(", ") : "Nadie"}
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+    });
+
+    contenedor.innerHTML = htmlKnockout;
+    actualizarVisibilidadReproductor();
+}
+
+function cargarStreamM3U8(url) {
+    const video = document.getElementById("video-player");
+    if (!video || !url) return;
+
+    if (hlsInstance) {
+        hlsInstance.destroy();
+        hlsInstance = null;
+    }
+
+    const esHLS = url.includes("m3u8");
+
+    if (esHLS && Hls.isSupported()) {
+        const configHls = {
+            maxBufferLength: 8,
+            maxMaxBufferLength: 15,
+            enableWorker: true,
+            lowLatencyMode: true,
+            backBufferLength: 0
+        };
+        hlsInstance = new Hls(configHls);
+        hlsInstance.loadSource(url);
+        hlsInstance.attachMedia(video);
+        
+        hlsInstance.on(Hls.Events.ERROR, function (event, data) {
+            if (data.fatal) {
+                switch (data.type) {
+                    case Hls.ErrorTypes.NETWORK_ERROR: hlsInstance.startLoad(); break;
+                    case Hls.ErrorTypes.MEDIA_ERROR: hlsInstance.recoverMediaError(); break;
+                }
+            }
+        });
+    } else {
+        video.removeAttribute("src");
+        video.src = url;
+        video.type = 'video/mp2t'; 
+        video.load(); 
+    }
+
+    if (!plyrPlayer) {
+        plyrPlayer = new Plyr(video, {
+            controls: ['play', 'current-time', 'mute', 'volume', 'fullscreen'],
+            keyboard: { focused: true, global: true }
+        });
+    }
+}
+
+function actualizarVisibilidadReproductor() {
+    const elementVideo = document.getElementById("contenedor-video-live");
+    if (!elementVideo) return;
+
+    const urlObjetivo = (fuenteActualSeleccionada === "fuente1") ? streamFuente1 : streamFuente2;
+
+    if (hayPartidoEnVivoEnEsteGrupo && urlObjetivo) {
+        if (elementVideo.style.display !== "block") {
+            elementVideo.style.display = "block";
+        }
+        const videoElement = document.getElementById("video-player");
+        if (videoElement && !videoElement.src && !hlsInstance) {
+            cargarStreamM3U8(urlObjetivo);
+        }
+    } else {
+        if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+        if (plyrPlayer) { plyrPlayer.destroy(); plyrPlayer = null; }
+        elementVideo.style.display = "none";  
+    }
+}
+
+function cambiarFuente(fuente) {
+    fuenteActualSeleccionada = fuente;
+    const btn1 = document.getElementById("btn-fuente1");
+    const btn2 = document.getElementById("btn-fuente2");
+    const urlObjetivo = (fuente === "fuente1") ? streamFuente1 : streamFuente2;
+
+    if (urlObjetivo) { cargarStreamM3U8(urlObjetivo); }
+
+    if (fuente === "fuente1") {
+        btn1.style.background = "#ff3a3a"; btn1.style.color = "white"; btn1.style.border = "none";
+        btn2.style.background = "#003f42"; btn2.style.color = "#64f5e6"; btn2.style.border = "2px solid #64f5e6";
+    } else {
+        btn2.style.background = "#ff3a3a"; btn2.style.color = "white"; btn2.style.border = "none";
+        btn1.style.background = "#003f42"; btn1.style.color = "#64f5e6"; btn1.style.border = "2px solid #64f5e6";
+    }
+}
 </script>
 
 <div class="hero">
